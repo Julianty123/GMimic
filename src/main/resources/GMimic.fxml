@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.CheckBox?>
+<?import javafx.scene.layout.AnchorPane?>
+
+<AnchorPane prefHeight="107.0" prefWidth="386.0" xmlns="http://javafx.com/javafx/11.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="GMimic">
+   <children>
+      <CheckBox fx:id="checkSpeech" layoutX="14.0" layoutY="49.0" mnemonicParsing="false" onAction="#handlecheckSpeech" text="Mimic Speech" />
+      <CheckBox fx:id="checkLook" layoutX="138.0" layoutY="49.0" mnemonicParsing="false" onAction="#handlecheckLook" text="Mimic Look" />
+      <CheckBox fx:id="checkMotto" layoutX="246.0" layoutY="49.0" mnemonicParsing="false" onAction="#handlecheckMotto" text="Mimic Motto" />
+      <CheckBox fx:id="checkTile" layoutX="124.0" layoutY="76.0" mnemonicParsing="false" onAction="#handlecheckTile" text="Follow Tile (Beta)" />
+      <CheckBox fx:id="checkName" layoutX="14.0" layoutY="16.0" mnemonicParsing="false" onAction="#handlecheckSpeech" selected="true" text="Restart the room and the click user" />
+      <CheckBox fx:id="checkBot" layoutX="292.0" layoutY="16.0" mnemonicParsing="false" onAction="#handlecheckBot" text="Mimic Bot" />
+   </children>
+</AnchorPane>
