@@ -26,9 +26,10 @@ import java.util.*;
 
 public class GMimic extends ExtensionForm {
     public CheckBox checkLook, checkMotto, checkTile, checkBoxName;
-    public TextField textFieldDelay, textFieldSaySomething, textFieldListenSay;
+    public TextField txtDelayFollow, txtDelayAutoStart, textFieldSaySomething, textFieldListenSay;
     public RadioButton radioButtonBot, radioCustomSpeech, radioMimicSpeech, radioButtonOff;
     public Text textListenSay, textSay;
+    public CheckBox checkUnfollow;
 
     TreeMap<Integer,String> BotIndexAndBotName = new TreeMap<>();
     TreeMap<Integer,Integer> UserIdAndIndex = new TreeMap<>();
@@ -41,8 +42,15 @@ public class GMimic extends ExtensionForm {
     public int UserId, YourId = -1;
     public int X, Y;
 
-    // Timer para definir el numero de clicks
-    Timer timer1 = null;
+    Timer timerNumberClicks = null;
+    Thread threadFollowUser = new Thread(()->{
+        try {
+            Thread.sleep(Integer.parseInt(txtDelayAutoStart.getText())); // sleep thread
+            Platform.runLater(()-> checkTile.setSelected(true));
+            timerNumberClicks.start(); // enabled timer again
+            sendToClient(new HPacket("Chat", HMessage.Direction.TOCLIENT, 999, "Follow user enabled! ", 0, 25, 0, -1));
+        } catch (InterruptedException ignored) {}
+    });
 
     @Override
     protected void initExtension() {
@@ -53,7 +61,7 @@ public class GMimic extends ExtensionForm {
             sendToServer(new HPacket("InfoRetrieve", HMessage.Direction.TOSERVER)); // Get your username
             sendToServer(new HPacket("GetHeightMap", HMessage.Direction.TOSERVER)); // Get Flooritems, Wallitems, etc. Without restart room
 
-            timer1 = new Timer(Integer.parseInt(textFieldDelay.getText()), t -> {
+            timerNumberClicks = new Timer(Integer.parseInt(txtDelayFollow.getText()), t -> {
                 try {
                     sendToServer(new HPacket("MoveAvatar", HMessage.Direction.TOSERVER, X, Y));
                 }catch (NullPointerException ignored){}
@@ -75,18 +83,31 @@ public class GMimic extends ExtensionForm {
         });
 
         // Runs when the textfield changes
-        textFieldDelay.textProperty().addListener((observable, oldValue, newValue) -> {
+        txtDelayFollow.textProperty().addListener((observable, oldValue, newValue) -> {
             try {
-                Integer.parseInt(textFieldDelay.getText());
+                Integer.parseInt(txtDelayFollow.getText());
             } catch (NumberFormatException e) {
-                if("".equals(textFieldDelay.getText())){
-                    textFieldDelay.setText("1");
+                if("".equals(txtDelayFollow.getText())){
+                    txtDelayFollow.setText("1");
                 }
                 else {
-                    textFieldDelay.setText(oldValue);
+                    txtDelayFollow.setText(oldValue);
                 }
             }
-            timer1.setDelay(Integer.parseInt(textFieldDelay.getText()));
+            timerNumberClicks.setDelay(Integer.parseInt(txtDelayFollow.getText()));
+        });
+
+        intercept(HMessage.Direction.TOSERVER, "MoveAvatar", hMessage -> {
+            try{
+                if(primaryStage.isShowing() && checkUnfollow.isSelected()){
+                    if(!threadFollowUser.isAlive() && checkTile.isSelected()){
+                        Platform.runLater(()-> checkTile.setSelected(false));
+                        timerNumberClicks.stop();
+                        sendToClient(new HPacket("Chat", HMessage.Direction.TOCLIENT, 999, "Follow user disabled! ", 0, 25, 0, -1));
+                        threadFollowUser.start();
+                    }
+                }
+            }catch (Exception e) { System.out.println(e.getCause().getMessage()); }
         });
 
         intercept(HMessage.Direction.TOSERVER, "GetSelectedBadges", hMessage -> {
@@ -165,7 +186,7 @@ public class GMimic extends ExtensionForm {
             int Ignored = hMessage.getPacket().readInteger();
             int BubbleColor = hMessage.getPacket().readInteger();
             try {
-                Thread.sleep(Integer.parseInt(textFieldDelay.getText()));
+                Thread.sleep(Integer.parseInt(txtDelayFollow.getText()));
             } catch (InterruptedException interruptedException) {
                 interruptedException.printStackTrace();
             }
@@ -191,7 +212,7 @@ public class GMimic extends ExtensionForm {
             int Ignored = hMessage.getPacket().readInteger();
             int BubbleColor = hMessage.getPacket().readInteger();
             try {
-                Thread.sleep(Integer.parseInt(textFieldDelay.getText()));
+                Thread.sleep(Integer.parseInt(txtDelayFollow.getText()));
             } catch (InterruptedException interruptedException) { interruptedException.printStackTrace(); }
 
             if(radioMimicSpeech.isSelected()){
@@ -220,7 +241,7 @@ public class GMimic extends ExtensionForm {
             int Ignore = hMessage.getPacket().readInteger();
             int BubbleColor = hMessage.getPacket().readInteger();
             try {
-                Thread.sleep(Integer.parseInt(textFieldDelay.getText()));
+                Thread.sleep(Integer.parseInt(txtDelayFollow.getText()));
             } catch (InterruptedException interruptedException) { interruptedException.printStackTrace(); }
 
             if(radioMimicSpeech.isSelected()){   // Obtengo el index del usuario que habla y lo comparo
@@ -313,10 +334,10 @@ public class GMimic extends ExtensionForm {
 
     public void handlecheckTile() {
         if(checkTile.isSelected()){
-            timer1.start(); // The timer starts
+            timerNumberClicks.start(); // The timer starts
         }
         else if(!checkTile.isSelected()){
-            timer1.stop();  // The timer stops
+            timerNumberClicks.stop();  // The timer stops
         }
     }
 }

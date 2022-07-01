@@ -9,7 +9,7 @@ public class GMimicLauncher extends ExtensionFormCreator {
 
     @Override
     public ExtensionForm createForm(Stage primaryStage) throws Exception {
-        FXMLLoader loader = new FXMLLoader(getClass().getResource("GMimic.fxml"));
+        FXMLLoader loader = new FXMLLoader(getClass().getResource("/GMimic.fxml"));
         Parent root = loader.load();
 
         primaryStage.setTitle("GMimic");
