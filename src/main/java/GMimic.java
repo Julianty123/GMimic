@@ -38,7 +38,7 @@ public class GMimic extends ExtensionForm {
     TreeMap<Integer,HGender> UserIdAndGender = new TreeMap<>();
     TreeMap<Integer,String> UserIdAndMotto = new TreeMap<>();
 
-    public String YourName, UsertoMimic;
+    public String YourName, UserToMimic;
     public int UserId, YourId = -1;
     public int X, Y;
 
@@ -52,30 +52,36 @@ public class GMimic extends ExtensionForm {
         } catch (InterruptedException ignored) {}
     });
 
+    // When the user open the extension
+    @Override
+    protected void onShow() {
+        // sendToServer("GetOccupiedTiles") // Get RoomEntryTile
+        // sendToServer("GetRoomEntryTile") // Get RoomOccupiedTiles for furnitures and the coords (could be important)
+        sendToServer(new HPacket("InfoRetrieve", HMessage.Direction.TOSERVER)); // Get your username
+        sendToServer(new HPacket("GetHeightMap", HMessage.Direction.TOSERVER)); // Get Flooritems, Wallitems, etc. Without restart room
+
+        timerNumberClicks = new Timer(Integer.parseInt(txtDelayFollow.getText()), t -> {
+            try {
+                sendToServer(new HPacket("MoveAvatar", HMessage.Direction.TOSERVER, X, Y));
+                System.out.println("x: " + X + " y: " + Y);
+            }catch (NullPointerException ignored){}
+        });
+    }
+
+    // When the user close the extension
+    @Override
+    protected void onHide() {
+        BotIndexAndBotName.clear(); UserIdAndIndex.clear(); UserIdAndName.clear();  UserIdAndFigureId.clear();
+        UserIdAndGender.clear();    UserIdAndMotto.clear(); UserId = -1;    X = 0;  Y = 0;
+        checkLook.setSelected(false);   textSay.setVisible(false);  textListenSay.setVisible(false);
+        textFieldListenSay.setDisable(true);    textFieldSaySomething.setDisable(true); radioButtonOff.setSelected(true);
+        Platform.runLater(() -> checkBoxName.setText("Click the user to mimic")); // Platform.exit();
+    }
+
     @Override
     protected void initExtension() {
-
-        primaryStage.setOnShowing(e->{
-            // sendToServer("GetOccupiedTiles") // Get RoomEntryTile
-            // sendToServer("GetRoomEntryTile") // Get RoomOccupiedTiles for furnitures and the coords (could be important)
-            sendToServer(new HPacket("InfoRetrieve", HMessage.Direction.TOSERVER)); // Get your username
-            sendToServer(new HPacket("GetHeightMap", HMessage.Direction.TOSERVER)); // Get Flooritems, Wallitems, etc. Without restart room
-
-            timerNumberClicks = new Timer(Integer.parseInt(txtDelayFollow.getText()), t -> {
-                try {
-                    sendToServer(new HPacket("MoveAvatar", HMessage.Direction.TOSERVER, X, Y));
-                }catch (NullPointerException ignored){}
-            });
-        });
-
-        // When the user close the extension
-        primaryStage.setOnCloseRequest(e -> {
-            BotIndexAndBotName.clear(); UserIdAndIndex.clear(); UserIdAndName.clear();  UserIdAndFigureId.clear();
-            UserIdAndGender.clear();    UserIdAndMotto.clear(); UserId = -1;    X = 0;  Y = 0;
-            checkLook.setSelected(false);   textSay.setVisible(false);  textListenSay.setVisible(false);
-            textFieldListenSay.setDisable(true);    textFieldSaySomething.setDisable(true); radioButtonOff.setSelected(true);
-            Platform.runLater(() -> checkBoxName.setText("Click the user to mimic")); // Platform.exit();
-        });
+        // primaryStage.setOnShowing(e->{});
+        // primaryStage.setOnCloseRequest(e -> {});
 
         intercept(HMessage.Direction.TOCLIENT, "UserObject", hMessage -> {
             YourId = hMessage.getPacket().readInteger();
@@ -115,8 +121,8 @@ public class GMimic extends ExtensionForm {
             try {
                 if(!UserIdAndName.get(UserId).equals(YourName)){
                     if(checkBoxName.isSelected()){ // Get user id for show the name
-                        UsertoMimic = UserIdAndName.get(UserId);
-                        Platform.runLater(() -> checkBoxName.setText("User to mimic: "+ UsertoMimic)); // This update GUI
+                        UserToMimic = UserIdAndName.get(UserId);
+                        Platform.runLater(() -> checkBoxName.setText("User to mimic: "+ UserToMimic)); // This update GUI
                     }
                     if(checkLook.isSelected()){ // Copy user look
                         sendToServer(new HPacket("UpdateFigureData", HMessage.Direction.TOSERVER,
@@ -193,7 +199,7 @@ public class GMimic extends ExtensionForm {
             if(radioMimicSpeech.isSelected()){
                 if(CurrentIndex == UserIdAndIndex.get(UserId)){  // Get the index of the whispering user
                     sendToServer(new HPacket("Whisper", HMessage.Direction.TOSERVER,
-                            UsertoMimic + " " + WhisperSomething, BubbleColor));
+                            UserToMimic + " " + WhisperSomething, BubbleColor));
                 }
             }
             if(radioButtonBot.isSelected()){
