@@ -20,7 +20,7 @@ import java.util.*;
 @ExtensionInfo(
         Title = "GMimic ",
         Description = "So Fucking Funny Extension!",
-        Version = "1.2.0",
+        Version = "1.2.1",
         Author = "Julianty"
 )
 
@@ -77,6 +77,7 @@ public class GMimic extends ExtensionForm {
         textFieldListenSay.setDisable(true);    textFieldSaySomething.setDisable(true); radioButtonOff.setSelected(true);
         Platform.runLater(() -> checkBoxName.setText("Click the user to mimic")); // Platform.exit();
     }
+
 
     @Override
     protected void initExtension() {
