@@ -31,16 +31,18 @@ public class GMimic extends ExtensionForm {
     public Text textListenSay, textSay;
     public CheckBox checkUnfollow;
 
-    TreeMap<Integer,String> BotIndexAndBotName = new TreeMap<>();
-    TreeMap<Integer,Integer> UserIdAndIndex = new TreeMap<>();
-    TreeMap<Integer,String> UserIdAndName = new TreeMap<>();
-    TreeMap<Integer,String> UserIdAndFigureId = new TreeMap<>();
-    TreeMap<Integer,HGender> UserIdAndGender = new TreeMap<>();
-    TreeMap<Integer,String> UserIdAndMotto = new TreeMap<>();
+    public HashMap<Integer,String> BotIndexAndBotName = new HashMap<>();
+    public HashMap<Integer,Integer> mapUserIdAndIndex = new HashMap<>();
+    public HashMap<Integer,String> UserIdAndName = new HashMap<>();
+    public HashMap<Integer,String> UserIdAndFigureId = new HashMap<>();
+    public HashMap<Integer,HGender> UserIdAndGender = new HashMap<>();
+    public HashMap<Integer,String> UserIdAndMotto = new HashMap<>();
 
-    public String YourName, UserToMimic;
-    public int UserId, YourId = -1;
-    public int X, Y;
+    public String yourUserName;
+    public String userToMimic;
+    public int userId;
+    public int yourId = -1;
+    public int xUser, yUser;
 
     Timer timerNumberClicks = null;
     Thread threadFollowUser = new Thread(()->{
@@ -49,21 +51,21 @@ public class GMimic extends ExtensionForm {
             Platform.runLater(()-> checkTile.setSelected(true));
             timerNumberClicks.start(); // enabled timer again
             sendToClient(new HPacket("Chat", HMessage.Direction.TOCLIENT, 999, "Follow user enabled! ", 0, 25, 0, -1));
-        } catch (InterruptedException ignored) {}
+        } catch (InterruptedException interruptedException) { interruptedException.printStackTrace();}
     });
 
     // When the user open the extension
     @Override
     protected void onShow() {
         // sendToServer("GetOccupiedTiles") // Get RoomEntryTile
-        // sendToServer("GetRoomEntryTile") // Get RoomOccupiedTiles for furnitures and the coords (could be important)
+        // sendToServer("GetRoomEntryTile") // Get RoomOccupiedTiles for furniture and the coords (could be important)
         sendToServer(new HPacket("InfoRetrieve", HMessage.Direction.TOSERVER)); // Get your username
         sendToServer(new HPacket("GetHeightMap", HMessage.Direction.TOSERVER)); // Get Flooritems, Wallitems, etc. Without restart room
 
         timerNumberClicks = new Timer(Integer.parseInt(txtDelayFollow.getText()), t -> {
             try {
-                sendToServer(new HPacket("MoveAvatar", HMessage.Direction.TOSERVER, X, Y));
-                System.out.println("x: " + X + " y: " + Y);
+                sendToServer(new HPacket("MoveAvatar", HMessage.Direction.TOSERVER, xUser, yUser));
+                System.out.println("x: " + xUser + " y: " + yUser);
             }catch (NullPointerException ignored){}
         });
     }
@@ -71,13 +73,15 @@ public class GMimic extends ExtensionForm {
     // When the user close the extension
     @Override
     protected void onHide() {
-        BotIndexAndBotName.clear(); UserIdAndIndex.clear(); UserIdAndName.clear();  UserIdAndFigureId.clear();
-        UserIdAndGender.clear();    UserIdAndMotto.clear(); UserId = -1;    X = 0;  Y = 0;
+        BotIndexAndBotName.clear(); mapUserIdAndIndex.clear(); UserIdAndName.clear();  UserIdAndFigureId.clear();
+
+        UserIdAndGender.clear();    UserIdAndMotto.clear(); userId = -1;    xUser = 0;  yUser = 0;
+
         checkLook.setSelected(false);   textSay.setVisible(false);  textListenSay.setVisible(false);
         textFieldListenSay.setDisable(true);    textFieldSaySomething.setDisable(true); radioButtonOff.setSelected(true);
+
         Platform.runLater(() -> checkBoxName.setText("Click the user to mimic")); // Platform.exit();
     }
-
 
     @Override
     protected void initExtension() {
@@ -85,22 +89,21 @@ public class GMimic extends ExtensionForm {
         // primaryStage.setOnCloseRequest(e -> {});
 
         intercept(HMessage.Direction.TOCLIENT, "UserObject", hMessage -> {
-            YourId = hMessage.getPacket().readInteger();
-            YourName = hMessage.getPacket().readString();
+            yourId = hMessage.getPacket().readInteger();
+            yourUserName = hMessage.getPacket().readString();
         });
 
-        // Runs when the textfield changes
+        // Runs when the textField changes
         txtDelayFollow.textProperty().addListener((observable, oldValue, newValue) -> {
             try {
                 Integer.parseInt(txtDelayFollow.getText());
             } catch (NumberFormatException e) {
-                if("".equals(txtDelayFollow.getText())){
+                if("".equals(txtDelayFollow.getText()))
                     txtDelayFollow.setText("1");
-                }
-                else {
+                else
                     txtDelayFollow.setText(oldValue);
-                }
             }
+
             timerNumberClicks.setDelay(Integer.parseInt(txtDelayFollow.getText()));
         });
 
@@ -118,20 +121,24 @@ public class GMimic extends ExtensionForm {
         });
 
         intercept(HMessage.Direction.TOSERVER, "GetSelectedBadges", hMessage -> {
-            UserId = hMessage.getPacket().readInteger();
+            int currentId = hMessage.getPacket().readInteger();
+            // userId = hMessage.getPacket().readInteger();
             try {
-                if(!UserIdAndName.get(UserId).equals(YourName)){
+                if(!UserIdAndName.get(currentId).equals(yourUserName)){
+                    userId = currentId;
                     if(checkBoxName.isSelected()){ // Get user id for show the name
-                        UserToMimic = UserIdAndName.get(UserId);
-                        Platform.runLater(() -> checkBoxName.setText("User to mimic: "+ UserToMimic)); // This update GUI
+                        userToMimic = UserIdAndName.get(userId);
+                        Platform.runLater(() -> checkBoxName.setText("User to mimic: "+ userToMimic)); // This update GUI
                     }
                     if(checkLook.isSelected()){ // Copy user look
                         sendToServer(new HPacket("UpdateFigureData", HMessage.Direction.TOSERVER,
-                                UserIdAndGender.get(UserId).toString(), UserIdAndFigureId.get(UserId)));
+                                UserIdAndGender.get(userId).toString(), UserIdAndFigureId.get(userId)));
                     }
                     if(checkMotto.isSelected()){ // Copy motto
-                        sendToServer(new HPacket("ChangeMotto", HMessage.Direction.TOSERVER, UserIdAndMotto.get(UserId)));
+                        sendToServer(new HPacket("ChangeMotto", HMessage.Direction.TOSERVER, UserIdAndMotto.get(userId)));
                     }
+
+                    checkBoxName.setSelected(false);
                 }
             }catch (NullPointerException ignored){}
         });
@@ -139,20 +146,20 @@ public class GMimic extends ExtensionForm {
         intercept(HMessage.Direction.TOCLIENT, "Users", hMessage -> {
             //IdAndIndex.clear(); Al no borrar la lista esos datos se almacenan ojo con eso
             try {
-                HPacket hPacket = hMessage.getPacket();
+                HPacket hPacket = hMessage.getPacket(); // System.out.println(hPacket);
                 HEntity[] roomUsersList = HEntity.parse(hPacket);
                 for (HEntity hEntity: roomUsersList){
                     if (hEntity.getEntityType().equals(HEntityType.HABBO)){
                         // El ID del usuario no esta en el Map (Dictionary en c#)
-                        if(!UserIdAndIndex.containsKey(hEntity.getId())){
-                            UserIdAndIndex.put(hEntity.getId(), hEntity.getIndex());
+                        if(!mapUserIdAndIndex.containsKey(hEntity.getId())){
+                            mapUserIdAndIndex.put(hEntity.getId(), hEntity.getIndex());
                             UserIdAndName.put(hEntity.getId(), hEntity.getName());
                             UserIdAndFigureId.put(hEntity.getId(), hEntity.getFigureId());
                             UserIdAndGender.put(hEntity.getId(), hEntity.getGender());
                             UserIdAndMotto.put(hEntity.getId(), hEntity.getMotto());
                         }
                         else { // Se especifica la key, para remplazar el value por uno nuevo
-                            UserIdAndIndex.replace(hEntity.getId(), hEntity.getIndex());
+                            mapUserIdAndIndex.replace(hEntity.getId(), hEntity.getIndex());
                             UserIdAndName.replace(hEntity.getId(), hEntity.getName());
                             UserIdAndFigureId.replace(hEntity.getId(), hEntity.getFigureId());
                             UserIdAndGender.replace(hEntity.getId(), hEntity.getGender());
@@ -160,12 +167,13 @@ public class GMimic extends ExtensionForm {
                         }
                     }
                     if(hEntity.getEntityType().equals(HEntityType.BOT) || hEntity.getEntityType().equals(HEntityType.OLD_BOT)){
-                        if(!BotIndexAndBotName.containsKey(hEntity.getIndex())){
+                        if(!BotIndexAndBotName.containsKey(hEntity.getIndex()))
                             BotIndexAndBotName.put(hEntity.getIndex(), hEntity.getName());
-                        }
                     }
                 }
-            } catch (Exception e) { e.printStackTrace(); }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         });
 
         // Get the user coords
@@ -176,9 +184,9 @@ public class GMimic extends ExtensionForm {
             for (HEntityUpdate hEntityUpdate: HEntityUpdate.parse(hMessage.getPacket())){
                 if(checkTile.isSelected()){
                     try {
-                        if(hEntityUpdate.getIndex() == UserIdAndIndex.get(UserId)){
-                            // hEntityUpdate.getMovingTo()... is more slow in this case
-                            X = hEntityUpdate.getTile().getX(); Y = hEntityUpdate.getTile().getY();
+                        if(hEntityUpdate.getIndex() == mapUserIdAndIndex.get(userId)){
+                            // hEntityUpdate.getMovingTo()... is more slow in this case getTile
+                            xUser = hEntityUpdate.getMovingTo().getX(); yUser = hEntityUpdate.getMovingTo().getY();
                             // sendToServer(new HPacket("MoveAvatar", HMessage.Direction.TOSERVER, X, Y));
                         }
                     }catch (NullPointerException ignored){ }
@@ -188,55 +196,53 @@ public class GMimic extends ExtensionForm {
 
         // Intercepts when a user whispers
         intercept(HMessage.Direction.TOCLIENT, "Whisper", hMessage -> {
-            int CurrentIndex = hMessage.getPacket().readInteger();
+            int currentIndex = hMessage.getPacket().readInteger();
             String WhisperSomething = hMessage.getPacket().readString(StandardCharsets.UTF_8); // Supports the turkish characters
-            int Ignored = hMessage.getPacket().readInteger();
-            int BubbleColor = hMessage.getPacket().readInteger();
+            int unknown = hMessage.getPacket().readInteger();
+            int bubbleColor = hMessage.getPacket().readInteger();
             try {
                 Thread.sleep(Integer.parseInt(txtDelayFollow.getText()));
-            } catch (InterruptedException interruptedException) {
-                interruptedException.printStackTrace();
-            }
+            } catch (InterruptedException ignored) {}
+
             if(radioMimicSpeech.isSelected()){
-                if(CurrentIndex == UserIdAndIndex.get(UserId)){  // Get the index of the whispering user
+                if(currentIndex == mapUserIdAndIndex.get(userId)){  // Get the index of the whispering user
                     sendToServer(new HPacket("Whisper", HMessage.Direction.TOSERVER,
-                            UserToMimic + " " + WhisperSomething, BubbleColor));
+                            userToMimic + " " + WhisperSomething, bubbleColor));
                 }
             }
             if(radioButtonBot.isSelected()){
                 // Generally, bots have firs numbers as index (0, 1, 2...)
-                if(BotIndexAndBotName.containsKey(CurrentIndex)){
+                if(BotIndexAndBotName.containsKey(currentIndex)){
                     sendToServer(new HPacket("Chat", HMessage.Direction.TOSERVER,
-                            BotIndexAndBotName.get(CurrentIndex) + ": " + WhisperSomething, BubbleColor));
+                            BotIndexAndBotName.get(currentIndex) + ": " + WhisperSomething, bubbleColor));
                 }
             }
         });
 
         // Intercepts when a user or bot talks
         intercept(HMessage.Direction.TOCLIENT, "Chat", hMessage -> {
-            int CurrentIndex = hMessage.getPacket().readInteger();
-            String SaySomething = hMessage.getPacket().readString(StandardCharsets.UTF_8); // accept any character as ş ğ ç ı ü ä ö ...
-            int Ignored = hMessage.getPacket().readInteger();
+            int currentIndex = hMessage.getPacket().readInteger();
+            String saySomething = hMessage.getPacket().readString(StandardCharsets.UTF_8); // accept any character as ş ğ ç ı ü ä ö ...
+            int unknown = hMessage.getPacket().readInteger();
             int BubbleColor = hMessage.getPacket().readInteger();
-            try {
-                Thread.sleep(Integer.parseInt(txtDelayFollow.getText()));
-            } catch (InterruptedException interruptedException) { interruptedException.printStackTrace(); }
+            try {Thread.sleep(Integer.parseInt(txtDelayFollow.getText()));}
+            catch (InterruptedException interruptedException) { interruptedException.printStackTrace();}
 
             if(radioMimicSpeech.isSelected()){
-                if(CurrentIndex == UserIdAndIndex.get(UserId)){  // Obtengo el index del usuario que habla y lo comparo
-                    sendToServer(new HPacket("Chat", HMessage.Direction.TOSERVER, SaySomething, BubbleColor, 1));
+                if(currentIndex == mapUserIdAndIndex.get(userId)){  // Obtengo el index del usuario que habla y lo comparo
+                    sendToServer(new HPacket("Chat", HMessage.Direction.TOSERVER, saySomething, BubbleColor, 1));
                 }
             }
             if(radioCustomSpeech.isSelected()){
-                if( CurrentIndex == UserIdAndIndex.get(UserId) && SaySomething.equalsIgnoreCase(textFieldListenSay.getText()) ){
+                if( currentIndex == mapUserIdAndIndex.get(userId) && saySomething.equalsIgnoreCase(textFieldListenSay.getText()) ){
                     sendToServer(new HPacket("Chat", HMessage.Direction.TOSERVER, textFieldSaySomething.getText(), BubbleColor, 1));
                 }
             }
             if(radioButtonBot.isSelected()){
                 // Por lo general los bots tienen Index con los primeros numeros 0, 1, 2...
-                if(BotIndexAndBotName.containsKey(CurrentIndex)){
+                if(BotIndexAndBotName.containsKey(currentIndex)){
                     sendToServer(new HPacket("Chat", HMessage.Direction.TOSERVER,
-                            BotIndexAndBotName.get(CurrentIndex) + ": " + SaySomething, BubbleColor, 1));
+                            BotIndexAndBotName.get(currentIndex) + ": " + saySomething, BubbleColor, 1));
                 }
             }
         });
@@ -245,16 +251,15 @@ public class GMimic extends ExtensionForm {
         intercept(HMessage.Direction.TOCLIENT, "Shout", hMessage -> {
             int CurrentIndex = hMessage.getPacket().readInteger();
             String ShoutSomething = hMessage.getPacket().readString(StandardCharsets.UTF_8);
-            int Ignore = hMessage.getPacket().readInteger();
+            int unknown = hMessage.getPacket().readInteger();
             int BubbleColor = hMessage.getPacket().readInteger();
-            try {
-                Thread.sleep(Integer.parseInt(txtDelayFollow.getText()));
-            } catch (InterruptedException interruptedException) { interruptedException.printStackTrace(); }
+
+            try {Thread.sleep(Integer.parseInt(txtDelayFollow.getText()));}
+            catch (InterruptedException interruptedException) { interruptedException.printStackTrace();}
 
             if(radioMimicSpeech.isSelected()){   // Obtengo el index del usuario que habla y lo comparo
-                if(CurrentIndex == UserIdAndIndex.get(UserId)){
+                if(CurrentIndex == mapUserIdAndIndex.get(userId))
                     sendToServer(new HPacket("Shout", HMessage.Direction.TOSERVER, ShoutSomething, BubbleColor,0));
-                }
             }
             if(radioButtonBot.isSelected()){
                 if(BotIndexAndBotName.containsKey(CurrentIndex)){
@@ -267,14 +272,12 @@ public class GMimic extends ExtensionForm {
         // When the user is typing
         intercept(HMessage.Direction.TOCLIENT, "UserTyping", hMessage -> {
             if(radioMimicSpeech.isSelected()){
-                int CurrentIndex = hMessage.getPacket().readInteger();
+                int currentIndex = hMessage.getPacket().readInteger();
                 int stateTyping = hMessage.getPacket().readInteger(); // "1" when starts and "0" when ends
-                if(CurrentIndex == UserIdAndIndex.get(UserId) && stateTyping == 1){
+                if(currentIndex == mapUserIdAndIndex.get(userId) && stateTyping == 1)
                     sendToServer(new HPacket("StartTyping", HMessage.Direction.TOSERVER));
-                }
-                else if(CurrentIndex == UserIdAndIndex.get(UserId) && stateTyping == 0){
+                else if(currentIndex == mapUserIdAndIndex.get(userId) && stateTyping == 0)
                     sendToServer(new HPacket("CancelTyping", HMessage.Direction.TOSERVER));
-                }
             }
         });
     }
@@ -324,28 +327,23 @@ public class GMimic extends ExtensionForm {
         }*/
     }
 
-    public void handlecheckLook() {
+    public void handleCheckLook() {
         if(checkLook.isSelected()){
             try{
                 sendToServer(new HPacket("UpdateFigureData", HMessage.Direction.TOSERVER,
-                        UserIdAndGender.get(UserId).toString(), UserIdAndFigureId.get(UserId)));
+                        UserIdAndGender.get(userId).toString(), UserIdAndFigureId.get(userId)));
             }catch (Exception ignored) { }
         }
     }
 
-    public void handlecheckMotto() {
-        if(checkMotto.isSelected()){
-            sendToServer(new HPacket("ChangeMotto", HMessage.Direction.TOSERVER, UserIdAndMotto.get(UserId)));
-        }
+    public void handleCheckMotto() {
+        if(checkMotto.isSelected())
+            sendToServer(new HPacket("ChangeMotto", HMessage.Direction.TOSERVER, UserIdAndMotto.get(userId)));
     }
 
-    public void handlecheckTile() {
-        if(checkTile.isSelected()){
-            timerNumberClicks.start(); // The timer starts
-        }
-        else if(!checkTile.isSelected()){
-            timerNumberClicks.stop();  // The timer stops
-        }
+    public void handleCheckTile() {
+        if(checkTile.isSelected()) timerNumberClicks.start();
+        else if(!checkTile.isSelected()) timerNumberClicks.stop();
     }
 }
 
