@@ -3,7 +3,6 @@ import gearth.extensions.ExtensionInfo;
 import gearth.extensions.parsers.HEntity;
 import gearth.extensions.parsers.HEntityType;
 import gearth.extensions.parsers.HEntityUpdate;
-import gearth.extensions.parsers.HGender;
 import gearth.protocol.HMessage;
 import gearth.protocol.HPacket;
 import javafx.application.Platform;
@@ -15,7 +14,6 @@ import javafx.scene.text.Text;
 import javafx.stage.Stage;
 import javax.swing.Timer;
 import java.nio.charset.StandardCharsets;
-import java.util.*;
 
 @ExtensionInfo(
         Title = "GMimic ",
@@ -30,13 +28,6 @@ public class GMimic extends ExtensionForm {
     public RadioButton radioButtonBot, radioCustomSpeech, radioMimicSpeech, radioButtonOff;
     public Text textListenSay, textSay;
     public CheckBox checkUnfollow;
-
-    public HashMap<Integer,String> BotIndexAndBotName = new HashMap<>();
-    public HashMap<Integer,Integer> mapUserIdAndIndex = new HashMap<>();
-    public HashMap<Integer,String> UserIdAndName = new HashMap<>();
-    public HashMap<Integer,String> UserIdAndFigureId = new HashMap<>();
-    public HashMap<Integer,HGender> UserIdAndGender = new HashMap<>();
-    public HashMap<Integer,String> UserIdAndMotto = new HashMap<>();
 
     public String yourUserName;
     public String userToMimic;
@@ -73,9 +64,9 @@ public class GMimic extends ExtensionForm {
     // When the user close the extension
     @Override
     protected void onHide() {
-        BotIndexAndBotName.clear(); mapUserIdAndIndex.clear(); UserIdAndName.clear();  UserIdAndFigureId.clear();
+        User.userArrayList.clear();
 
-        UserIdAndGender.clear();    UserIdAndMotto.clear(); userId = -1;    xUser = 0;  yUser = 0;
+        userId = -1;    xUser = 0;  yUser = 0;
 
         checkLook.setSelected(false);   textSay.setVisible(false);  textListenSay.setVisible(false);
         textFieldListenSay.setDisable(true);    textFieldSaySomething.setDisable(true); radioButtonOff.setSelected(true);
@@ -124,18 +115,18 @@ public class GMimic extends ExtensionForm {
             int currentId = hMessage.getPacket().readInteger();
             // userId = hMessage.getPacket().readInteger();
             try {
-                if(!UserIdAndName.get(currentId).equals(yourUserName)){
+                if(!User.getUserNameByUserId(currentId).equals(yourUserName)){
                     userId = currentId;
                     if(checkBoxName.isSelected()){ // Get user id for show the name
-                        userToMimic = UserIdAndName.get(userId);
+                        userToMimic = User.getUserNameByUserId(userId);
                         Platform.runLater(() -> checkBoxName.setText("User to mimic: "+ userToMimic)); // This update GUI
                     }
                     if(checkLook.isSelected()){ // Copy user look
                         sendToServer(new HPacket("UpdateFigureData", HMessage.Direction.TOSERVER,
-                                UserIdAndGender.get(userId).toString(), UserIdAndFigureId.get(userId)));
+                                User.getGenderByUserId(userId), User.getFigureByUserId(userId)));
                     }
                     if(checkMotto.isSelected()){ // Copy motto
-                        sendToServer(new HPacket("ChangeMotto", HMessage.Direction.TOSERVER, UserIdAndMotto.get(userId)));
+                        sendToServer(new HPacket("ChangeMotto", HMessage.Direction.TOSERVER, User.getUserMottoByUserId(userId)));
                     }
 
                     checkBoxName.setSelected(false);
@@ -150,25 +141,14 @@ public class GMimic extends ExtensionForm {
                 HEntity[] roomUsersList = HEntity.parse(hPacket);
                 for (HEntity hEntity: roomUsersList){
                     if (hEntity.getEntityType().equals(HEntityType.HABBO)){
-                        // El ID del usuario no esta en el Map (Dictionary en c#)
-                        if(!mapUserIdAndIndex.containsKey(hEntity.getId())){
-                            mapUserIdAndIndex.put(hEntity.getId(), hEntity.getIndex());
-                            UserIdAndName.put(hEntity.getId(), hEntity.getName());
-                            UserIdAndFigureId.put(hEntity.getId(), hEntity.getFigureId());
-                            UserIdAndGender.put(hEntity.getId(), hEntity.getGender());
-                            UserIdAndMotto.put(hEntity.getId(), hEntity.getMotto());
-                        }
-                        else { // Se especifica la key, para remplazar el value por uno nuevo
-                            mapUserIdAndIndex.replace(hEntity.getId(), hEntity.getIndex());
-                            UserIdAndName.replace(hEntity.getId(), hEntity.getName());
-                            UserIdAndFigureId.replace(hEntity.getId(), hEntity.getFigureId());
-                            UserIdAndGender.replace(hEntity.getId(), hEntity.getGender());
-                            UserIdAndMotto.replace(hEntity.getId(), hEntity.getMotto());
-                        }
+                        if(!User.containsUserId(hEntity.getId()))
+                            User.userArrayList.add(new User(hEntity.getName(), hEntity.getId(), hEntity.getIndex(), hEntity.getFigureId(), hEntity.getGender(), hEntity.getMotto()));
+                        else
+                            User.setUser(hEntity);
                     }
-                    if(hEntity.getEntityType().equals(HEntityType.BOT) || hEntity.getEntityType().equals(HEntityType.OLD_BOT)){
-                        if(!BotIndexAndBotName.containsKey(hEntity.getIndex()))
-                            BotIndexAndBotName.put(hEntity.getIndex(), hEntity.getName());
+                    else if(hEntity.getEntityType().equals(HEntityType.BOT) || hEntity.getEntityType().equals(HEntityType.OLD_BOT)){
+                        if(!User.containsUserIndex(hEntity.getIndex()))
+                            User.userArrayList.add(new User(hEntity.getName(), hEntity.getId(), hEntity.getIndex(), hEntity.getFigureId(), hEntity.getGender(), hEntity.getMotto()));
                     }
                 }
             } catch (Exception e) {
@@ -184,7 +164,7 @@ public class GMimic extends ExtensionForm {
             for (HEntityUpdate hEntityUpdate: HEntityUpdate.parse(hMessage.getPacket())){
                 if(checkTile.isSelected()){
                     try {
-                        if(hEntityUpdate.getIndex() == mapUserIdAndIndex.get(userId)){
+                        if(hEntityUpdate.getIndex() == User.getUserIndexByUserId(userId)){
                             // hEntityUpdate.getMovingTo()... is more slow in this case getTile
                             xUser = hEntityUpdate.getMovingTo().getX(); yUser = hEntityUpdate.getMovingTo().getY();
                             // sendToServer(new HPacket("MoveAvatar", HMessage.Direction.TOSERVER, X, Y));
@@ -205,16 +185,16 @@ public class GMimic extends ExtensionForm {
             } catch (InterruptedException ignored) {}
 
             if(radioMimicSpeech.isSelected()){
-                if(currentIndex == mapUserIdAndIndex.get(userId)){  // Get the index of the whispering user
+                if(currentIndex == User.getUserIndexByUserId(userId)){  // Get the index of the whispering user
                     sendToServer(new HPacket("Whisper", HMessage.Direction.TOSERVER,
                             userToMimic + " " + WhisperSomething, bubbleColor));
                 }
             }
             if(radioButtonBot.isSelected()){
                 // Generally, bots have firs numbers as index (0, 1, 2...)
-                if(BotIndexAndBotName.containsKey(currentIndex)){
+                if(User.containsUserIndex(currentIndex)){
                     sendToServer(new HPacket("Chat", HMessage.Direction.TOSERVER,
-                            BotIndexAndBotName.get(currentIndex) + ": " + WhisperSomething, bubbleColor));
+                            User.getUserNameByUserIndex(currentIndex) + ": " + WhisperSomething, bubbleColor));
                 }
             }
         });
@@ -229,20 +209,20 @@ public class GMimic extends ExtensionForm {
             catch (InterruptedException interruptedException) { interruptedException.printStackTrace();}
 
             if(radioMimicSpeech.isSelected()){
-                if(currentIndex == mapUserIdAndIndex.get(userId)){  // Obtengo el index del usuario que habla y lo comparo
+                if(currentIndex == User.getUserIndexByUserId(userId)){  // Obtengo el index del usuario que habla y lo comparo
                     sendToServer(new HPacket("Chat", HMessage.Direction.TOSERVER, saySomething, BubbleColor, 1));
                 }
             }
             if(radioCustomSpeech.isSelected()){
-                if( currentIndex == mapUserIdAndIndex.get(userId) && saySomething.equalsIgnoreCase(textFieldListenSay.getText()) ){
+                if( currentIndex == User.getUserIndexByUserId(userId) && saySomething.equalsIgnoreCase(textFieldListenSay.getText()) ){
                     sendToServer(new HPacket("Chat", HMessage.Direction.TOSERVER, textFieldSaySomething.getText(), BubbleColor, 1));
                 }
             }
             if(radioButtonBot.isSelected()){
                 // Por lo general los bots tienen Index con los primeros numeros 0, 1, 2...
-                if(BotIndexAndBotName.containsKey(currentIndex)){
+                if(User.containsUserIndex(currentIndex)){
                     sendToServer(new HPacket("Chat", HMessage.Direction.TOSERVER,
-                            BotIndexAndBotName.get(currentIndex) + ": " + saySomething, BubbleColor, 1));
+                            User.getUserNameByUserIndex(currentIndex) + ": " + saySomething, BubbleColor, 1));
                 }
             }
         });
@@ -258,13 +238,13 @@ public class GMimic extends ExtensionForm {
             catch (InterruptedException interruptedException) { interruptedException.printStackTrace();}
 
             if(radioMimicSpeech.isSelected()){   // Obtengo el index del usuario que habla y lo comparo
-                if(CurrentIndex == mapUserIdAndIndex.get(userId))
+                if(CurrentIndex == User.getUserIndexByUserId(userId))
                     sendToServer(new HPacket("Shout", HMessage.Direction.TOSERVER, ShoutSomething, BubbleColor,0));
             }
             if(radioButtonBot.isSelected()){
-                if(BotIndexAndBotName.containsKey(CurrentIndex)){
+                if(User.containsUserIndex(CurrentIndex)){
                     sendToServer(new HPacket("Shout", HMessage.Direction.TOSERVER,
-                            BotIndexAndBotName.get(CurrentIndex) + ": " + ShoutSomething, BubbleColor, 1));
+                            User.getUserNameByUserIndex(CurrentIndex) + ": " + ShoutSomething, BubbleColor, 1));
                 }
             }
         });
@@ -274,9 +254,9 @@ public class GMimic extends ExtensionForm {
             if(radioMimicSpeech.isSelected()){
                 int currentIndex = hMessage.getPacket().readInteger();
                 int stateTyping = hMessage.getPacket().readInteger(); // "1" when starts and "0" when ends
-                if(currentIndex == mapUserIdAndIndex.get(userId) && stateTyping == 1)
+                if(currentIndex == User.getUserIndexByUserId(userId) && stateTyping == 1)
                     sendToServer(new HPacket("StartTyping", HMessage.Direction.TOSERVER));
-                else if(currentIndex == mapUserIdAndIndex.get(userId) && stateTyping == 0)
+                else if(currentIndex == User.getUserIndexByUserId(userId) && stateTyping == 0)
                     sendToServer(new HPacket("CancelTyping", HMessage.Direction.TOSERVER));
             }
         });
@@ -331,14 +311,14 @@ public class GMimic extends ExtensionForm {
         if(checkLook.isSelected()){
             try{
                 sendToServer(new HPacket("UpdateFigureData", HMessage.Direction.TOSERVER,
-                        UserIdAndGender.get(userId).toString(), UserIdAndFigureId.get(userId)));
+                        User.getGenderByUserId(userId), User.getFigureByUserId(userId)));
             }catch (Exception ignored) { }
         }
     }
 
     public void handleCheckMotto() {
         if(checkMotto.isSelected())
-            sendToServer(new HPacket("ChangeMotto", HMessage.Direction.TOSERVER, UserIdAndMotto.get(userId)));
+            sendToServer(new HPacket("ChangeMotto", HMessage.Direction.TOSERVER, User.getUserMottoByUserId(userId)));
     }
 
     public void handleCheckTile() {
@@ -346,5 +326,3 @@ public class GMimic extends ExtensionForm {
         else if(!checkTile.isSelected()) timerNumberClicks.stop();
     }
 }
-
-//        if(response != null) sendToServer(new HPacket("12", HMessage.Direction.TOSERVER, 12));
